@@ -33,6 +33,7 @@ const LabEnvironmentPage = () => {
   const [terminalOutputBuffer, setTerminalOutputBuffer] = useState('');
   const [isVerifyingTask, setIsVerifyingTask] = useState(false); // For loading state on verify button
   const [wsConnectionStatus, setWsConnectionStatus] = useState('Connecting...'); // 'Connecting...', 'Connected', 'Disconnected', 'Error'
+  const [activeTab, setActiveTab] = useState("instructions"); // For tracking active tab
 
 
   const connectWebSocket = useCallback(() => {
@@ -274,7 +275,7 @@ const LabEnvironmentPage = () => {
         transition={{ duration: 0.5, delay: 0.4 }}
         className="lg:w-2/3 flex flex-col"
       >
-        <Tabs defaultValue="instructions" className="w-full flex-grow flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-grow flex flex-col">
           <TabsList className="grid w-full grid-cols-2 bg-slate-800/70 border-slate-700">
             <TabsTrigger value="instructions" className="data-[state=active]:bg-slate-700 data-[state=active]:text-sky-300">Instructions</TabsTrigger>
             <TabsTrigger value="terminal" className="data-[state=active]:bg-slate-700 data-[state=active]:text-sky-300">Terminal</TabsTrigger>
@@ -312,6 +313,7 @@ const LabEnvironmentPage = () => {
                     isConnected={wsConnectionStatus === 'Connected'} 
                     tasks={tasks} 
                     currentTaskIndex={currentTaskIndex}
+                    isTerminalVisible={activeTab === 'terminal'} // New prop
                 />
              </div>
             {activeTask && !activeTask.completed && (

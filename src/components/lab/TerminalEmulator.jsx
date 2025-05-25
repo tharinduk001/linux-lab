@@ -10,6 +10,7 @@ const TerminalEmulator = ({
   onData, // Callback to send data to parent (LabEnvironmentPage) -> (data: string) => void
   initialOutput = '', // Output received from WebSocket via LabEnvironmentPage
   isConnected, // WebSocket connection status
+  isTerminalVisible, // New prop: boolean indicating if the terminal tab is active
   // tasks and currentTaskIndex are passed from parent but not directly used here anymore
 }) => {
   const terminalRef = useRef(null);
@@ -63,10 +64,16 @@ const TerminalEmulator = ({
       termInst.loadAddon(currentFitAddon);
       termInst.open(terminalRef.current);
       
-      try {
-        currentFitAddon.fit();
-      } catch (e) {
-        // console.warn("FitAddon fit error on initial load:", e);
+      if (fitAddonRef.current && isTerminalVisible) { // Ensure fitAddonRef.current is set and terminal is visible
+          requestAnimationFrame(() => {
+              try {
+                  if (fitAddonRef.current && isTerminalVisible) { // Check again inside animationFrame callback
+                       fitAddonRef.current.fit();
+                  }
+              } catch (e) {
+                  // console.warn("FitAddon fit error on initial load (rAF, visible):", e);
+              }
+          });
       }
       termInst.focus();
 
@@ -88,12 +95,16 @@ const TerminalEmulator = ({
       });
     } else {
         termInst = xtermRef.current;
-        if (fitAddonRef.current) {
-            try {
-                fitAddonRef.current.fit();
-            } catch(e) {
-                // console.warn("FitAddon fit error on re-render with existing term:", e);
-            }
+        if (fitAddonRef.current && isTerminalVisible) { // Check if terminal is visible
+            requestAnimationFrame(() => {
+                try {
+                    if (fitAddonRef.current && isTerminalVisible) { // Check again
+                        fitAddonRef.current.fit();
+                    }
+                } catch(e) {
+                    // console.warn("FitAddon fit error on re-render with existing term (rAF, visible):", e);
+                }
+            });
         }
         termInst.focus();
     }
@@ -110,15 +121,28 @@ const TerminalEmulator = ({
 
 
     const handleWindowResize = () => {
-      if (fitAddonRef.current) {
+      if (fitAddonRef.current && isTerminalVisible) { // Check if terminal is visible
         try {
             fitAddonRef.current.fit();
         } catch(e) {
-            // console.warn("FitAddon fit error on window resize:", e);
+            // console.warn("FitAddon fit error on window resize (visible):", e);
         }
       }
     };
     window.addEventListener('resize', handleWindowResize);
+
+    // Effect to fit terminal when it becomes visible
+    if (isTerminalVisible && fitAddonRef.current && xtermRef.current) {
+        requestAnimationFrame(() => {
+            try {
+                if (fitAddonRef.current) {
+                     fitAddonRef.current.fit();
+                }
+            } catch (e) {
+                // console.warn("FitAddon fit error on tab visibility change (rAF):", e);
+            }
+        });
+    }
 
     return () => {
       window.removeEventListener('resize', handleWindowResize);
@@ -129,7 +153,7 @@ const TerminalEmulator = ({
       fitAddonRef.current = null; 
       lastOutputLength.current = 0; 
     };
-  }, [onData, isConnected]); 
+  }, [onData, isConnected, isTerminalVisible]); // Added isTerminalVisible to dependency array
 
   // Effect for writing dynamic initialOutput if component isn't remounted by key
   // This mainly handles ongoing messages from WebSocket

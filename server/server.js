@@ -191,6 +191,10 @@ wss.on('connection', async (ws) => {
               // console.error(`Error resizing container ${container.id}:`, resizeError.message);
             }
           }
+        } else if (parsedMessage && parsedMessage.type === 'control') { // New handler
+          // Optional: Log the control message on the server for debugging
+          // console.log(`[Server] Received control message payload: ${parsedMessage.payload}`);
+          // Currently, we don't need to send anything back or do more.
         } else { // Regular terminal input
           if (ptyStream && container.id) { // Check if stream and container are still valid
             ptyStream.write(messageString); // Send raw string or buffer

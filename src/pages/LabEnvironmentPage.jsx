@@ -2,12 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import TaskList from "@/components/lab/TaskList";
 import XTermTerminal from "@/components/lab/XTermTerminal";
-import TaskInstructions from "@/components/lab/TaskInstructions";
+// Removed unused import of TaskInstructions
 import { useTaskManager } from "@/hooks/useTaskManager";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, CheckCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Removed Tabs, TabsContent, TabsList, TabsTrigger imports
 import { motion } from "framer-motion";
 
 const LabEnvironmentPage = () => {
@@ -29,7 +29,7 @@ const LabEnvironmentPage = () => {
   const [terminalOutputBuffer, setTerminalOutputBuffer] = useState("");
   const [isVerifyingTask, setIsVerifyingTask] = useState(false);
   const [wsConnectionStatus, setWsConnectionStatus] = useState("Connecting...");
-  const [activeTab, setActiveTab] = useState("instructions");
+  // Removed activeTab state
 
   const connectWebSocket = useCallback(() => {
     setWsConnectionStatus("Connecting...");
@@ -227,115 +227,94 @@ const LabEnvironmentPage = () => {
           tasks={tasks}
           currentTaskIndex={currentTaskIndex}
           onTaskSelect={setCurrentTaskIndex}
+          activeTask={activeTask} // Pass activeTask
         />
       </motion.div>
 
       <motion.div
-        className="w-full lg:w-2/4 flex flex-col"
+        className="w-full lg:flex-grow flex flex-col bg-card rounded-lg shadow-md p-4" // Applied styles from TabsContent
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <Tabs
-          defaultValue="instructions"
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="instructions">Instructions</TabsTrigger>
-            <TabsTrigger value="terminal">Terminal</TabsTrigger>
-          </TabsList>
-          <TabsContent
-            value="instructions"
-            className="bg-card rounded-lg shadow-md p-4 h-[calc(100vh-13rem)]"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                {activeTask ? activeTask.title : "No Task Selected"}
-              </h2>
-              {activeTask && !activeTask.completed && (
-                <Button
-                  onClick={verifyTask}
-                  disabled={
-                    isVerifyingTask || wsConnectionStatus !== "Connected"
-                  }
-                >
-                  {isVerifyingTask ? (
-                    <>
-                      <span className="mr-2">Verifying...</span>
-                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Verify Task
-                    </>
-                  )}
-                </Button>
-              )}
-              {activeTask && activeTask.completed && (
-                <span className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Completed
-                </span>
-              )}
-            </div>
-            <TaskInstructions task={activeTask} />
-          </TabsContent>
-          <TabsContent
-            value="terminal"
-            className="bg-card rounded-lg shadow-md p-4 h-[calc(100vh-13rem)]"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center">
-                <h2 className="text-xl font-bold mr-3">Linux Terminal</h2>
-                <div className="flex items-center">
-                  <div
-                    className={`h-3 w-3 rounded-full mr-2 ${
-                      wsConnectionStatus === "Connected"
-                        ? "bg-green-500"
-                        : wsConnectionStatus === "Connecting..."
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                    }`}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {wsConnectionStatus}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {wsConnectionStatus !== "Connected" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={connectWebSocket}
-                  >
-                    Reconnect
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetTerminal}
-                  title="Reset terminal"
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" />
-                  Reset
-                </Button>
-              </div>
-            </div>{" "}
-            <div className="h-[calc(100%-3rem)] rounded border">
-              <XTermTerminal
-                key={terminalKey}
-                isConnected={wsConnectionStatus === "Connected"}
-                onSendCommand={sendCommand}
-                outputBuffer={terminalOutputBuffer}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center">
+            <h2 className="text-xl font-bold mr-3">Linux Terminal</h2>
+            <div className="flex items-center">
+              <div
+                className={`h-3 w-3 rounded-full mr-2 ${
+                  wsConnectionStatus === "Connected"
+                    ? "bg-green-500"
+                    : wsConnectionStatus === "Connecting..."
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
+                }`}
               />
+              <span className="text-sm text-muted-foreground">
+                {wsConnectionStatus}
+              </span>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+          <div className="flex gap-2">
+            {wsConnectionStatus !== "Connected" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={connectWebSocket}
+              >
+                Reconnect
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetTerminal}
+              title="Reset terminal"
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Reset
+            </Button>
+
+            {/* Verify Task Button and Completed Status START */}
+            {activeTask && !activeTask.completed && (
+              <Button
+                onClick={verifyTask}
+                disabled={
+                  isVerifyingTask || wsConnectionStatus !== "Connected"
+                }
+                size="sm" // Match size with other buttons in this row
+              >
+                {isVerifyingTask ? (
+                  <>
+                    <span className="mr-2">Verifying...</span>
+                    <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Verify Task
+                  </>
+                )}
+              </Button>
+            )}
+            {activeTask && activeTask.completed && (
+              <span className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm flex items-center h-9"> {/* Adjusted to match button height with h-9 (size sm for button) */}
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Completed
+              </span>
+            )}
+            {/* Verify Task Button and Completed Status END */}
+          </div>
+        </div>{" "}
+        {/* This div now needs to be flex-grow to fill the space in the flex-col parent */}
+        <div className="rounded border flex-grow"> {/* Added flex-grow, removed h-[calc(100%-3rem)] */}
+          <XTermTerminal
+            key={terminalKey}
+            isConnected={wsConnectionStatus === "Connected"}
+            onSendCommand={sendCommand}
+            outputBuffer={terminalOutputBuffer}
+          />
+        </div>
       </motion.div>
     </div>
   );

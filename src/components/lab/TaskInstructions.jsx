@@ -20,9 +20,9 @@ const TaskInstructions = ({ task }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="p-1 h-full flex flex-col"
+      className="p-1 flex flex-col" // Removed h-full
     >
-      <ScrollArea className="flex-grow pr-4">
+      <ScrollArea className="flex-grow pr-4"> {/* This ScrollArea will handle overflow */}
         <div className="space-y-4">
           <div className="flex items-center space-x-2 mb-4">
             <Lightbulb className="h-8 w-8 text-yellow-400 glow-effect" />

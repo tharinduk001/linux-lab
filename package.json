@@ -1,12 +1,12 @@
 {
   "name": "web-app",
   "version": "0.0.0",
-  "private": true,
-  "scripts": {
+  "type": "module",
+  "private": true,  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start:server": "node server/server.js"
+    "start:server": "node server/server.cjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.0.5",

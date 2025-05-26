@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import tasksData from '@/data/tasks.json';
+import { initialTasks as tasksData } from '@/data/tasks.js';
 
 export const useTaskManager = () => {
   const [tasks, setTasks] = useState([]);

@@ -1,7 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Progress } from '@/components/ui/progress';
 import TaskList from '@/components/lab/TaskList';
 import TerminalEmulator from '@/components/lab/TerminalEmulator';
@@ -10,7 +7,8 @@ import { useTaskManager } from '@/hooks/useTaskManager';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, CheckCircle } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
 
 const LabEnvironmentPage = () => {
   const {
@@ -28,16 +26,12 @@ const LabEnvironmentPage = () => {
   const { toast } = useToast();
   const wsRef = useRef(null);
   const [terminalKey, setTerminalKey] = useState(0); // Used to force TerminalEmulator re-mount
-  const [isWsConnected, setIsWsConnected] = useState(false);
-  // terminalOutputBuffer stores messages received from WS for TerminalEmulator
   const [terminalOutputBuffer, setTerminalOutputBuffer] = useState('');
-  const [isVerifyingTask, setIsVerifyingTask] = useState(false); // For loading state on verify button
-  const [wsConnectionStatus, setWsConnectionStatus] = useState('Connecting...'); // 'Connecting...', 'Connected', 'Disconnected', 'Error'
-  const [activeTab, setActiveTab] = useState("instructions"); // For tracking active tab
-
+  const [isVerifyingTask, setIsVerifyingTask] = useState(false);
+  const [wsConnectionStatus, setWsConnectionStatus] = useState('Connecting...');
+  const [activeTab, setActiveTab] = useState("instructions");
 
   const connectWebSocket = useCallback(() => {
-    // console.log('Attempting to connect WebSocket...');
     setWsConnectionStatus('Connecting...');
     setTerminalOutputBuffer(''); // Clear buffer on new connection attempt
     
@@ -47,17 +41,14 @@ const LabEnvironmentPage = () => {
     }
 
     wsRef.current = new WebSocket('ws://localhost:3001/terminal');
-    // setIsWsConnected(false); // This is now handled by wsConnectionStatus
 
     wsRef.current.onopen = () => {
-      // console.log('WebSocket connected from LabEnvironmentPage');
-      // setIsWsConnected(true);
       setWsConnectionStatus('Connected');
       setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Connected]\r\n');
       if (activeTask) {
           sendInitialMessages(activeTask);
       } else {
-            sendInitialMessages(null); // Send idle messages
+          sendInitialMessages(null); // Send idle messages
       }
     };
 
@@ -70,288 +61,244 @@ const LabEnvironmentPage = () => {
             setIsVerifyingTask(false); // Stop loading on verify button
             if (parsedMessage.success) {
               if (activeTask && !activeTask.completed) {
-                completeTask(activeTask.id); // This is from useTaskManager
+                completeTask(currentTaskIndex);
                 toast({
-                  title: "Task Validated!",
-                  description: `"${activeTask.title}" successfully validated and marked complete.`,
+                  title: "Task Completed!",
+                  description: `You've successfully completed: ${activeTask.title}`,
                   variant: "success",
                 });
               }
             } else {
               toast({
-                title: "Validation Failed",
-                description: `Command: ${parsedMessage.command}\nOutput: ${parsedMessage.output}`, // Make sure output is concise for toast
+                title: "Task Not Completed",
+                description: "The validation check failed. Try again.",
                 variant: "destructive",
-                duration: 9000, // Longer duration for errors with output
               });
             }
-            // The backend should ideally send back the prompt after validation.
-            // If not, we might need to manually add a prompt here or have TerminalEmulator do it.
-            // For now, relying on backend to send complete output including new prompt.
-            // if (activeTask) {
-            //     setTerminalOutputBuffer(prev => prev + `\r\n${activeTask.terminalSetup?.initialDirectory || '/home/student'}$ `);
-            // } else {
-            //     setTerminalOutputBuffer(prev => prev + `\r\n/$ `);
-            // }
-
-          } else if (parsedMessage.type === 'error') { // Server-side error messages
-            setTerminalOutputBuffer(prev => prev + `\r\n[SERVER_ERROR] ${parsedMessage.message}\r\n`);
-             toast({
-                title: "Server Error",
-                description: parsedMessage.message,
-                variant: "destructive",
-            });
-          } else {
-            // Regular PTY output
-            setTerminalOutputBuffer(prev => prev + messageData);
+          } else if (parsedMessage.type === 'terminalOutput') {
+            setTerminalOutputBuffer(prev => prev + parsedMessage.data);
           }
         } catch (e) {
-          // Not a JSON message, treat as direct terminal output from container
+          // Direct output, not JSON
           setTerminalOutputBuffer(prev => prev + messageData);
         }
-      };
+    };
 
-      wsRef.current.onerror = (errorEvent) => {
-        console.error('WebSocket error in LabEnvironmentPage:', errorEvent);
-        setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Error - Connection failed. Please try reconnecting.]\r\n');
-        // setIsWsConnected(false);
-        setWsConnectionStatus('Error');
-        toast({
-            title: "WebSocket Error",
-            description: "Connection to the terminal server failed. Please try reconnecting.",
-            variant: "destructive",
-        });
-      };
+    wsRef.current.onerror = () => {
+      setWsConnectionStatus('Error');
+      setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Connection Error]\r\n');
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to terminal server. Please check if it's running.",
+        variant: "destructive",
+      });
+    };
 
-      wsRef.current.onclose = (event) => {
-        // console.log('WebSocket disconnected from LabEnvironmentPage. Code:', event.code, 'Reason:', event.reason);
-        if (event.wasClean) {
-            setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Disconnected]\r\n');
-        } else {
-            setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Connection Lost - Please try reconnecting.]\r\n');
-        }
-        // setIsWsConnected(false);
-        setWsConnectionStatus('Disconnected');
-         toast({
-            title: "WebSocket Disconnected",
-            description: "Connection to the terminal server was closed.",
-            variant: "warning",
-        });
-      };
-    // }, [activeTask, sendInitialMessages]); // Added sendInitialMessages
-    // }, [activeTask, sendInitialMessages, toast]);
-  }, [activeTask, completeTask, toast]); // Dependencies for connectWebSocket and its internal logic
+    wsRef.current.onclose = () => {
+      setWsConnectionStatus('Disconnected');
+      setTerminalOutputBuffer(prev => prev + '\r\n[WebSocket Disconnected]\r\n');
+    };
+  }, [activeTask, completeTask, currentTaskIndex, toast]);
 
+  // Properly manage WebSocket connection
   useEffect(() => {
-    connectWebSocket(); // Initial connection attempt
-    setTerminalKey(prevKey => prevKey + 1); // Force re-mount TerminalEmulator when activeTask changes
-
+    connectWebSocket();
+    
+    // Cleanup function to close WebSocket when component unmounts
     return () => {
       if (wsRef.current) {
-        // console.log('Closing WebSocket connection from LabEnvironmentPage cleanup.');
-        wsRef.current.onopen = null;
-        wsRef.current.onmessage = null;
-        wsRef.current.onerror = null;
-        wsRef.current.onclose = null;
         wsRef.current.close();
-        wsRef.current = null;
       }
-      // setIsWsConnected(false);
-      setWsConnectionStatus('Disconnected');
     };
-  }, [activeTask, connectWebSocket]); // connectWebSocket is now memoized with useCallback
+  }, [connectWebSocket]);
 
-
-  // useCallback for sendInitialMessages to stabilize its reference if used in useEffect deps
-  const sendInitialMessages = useCallback((taskForSetup) => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          if (taskForSetup && taskForSetup.terminalSetup) { // Ensure taskForSetup and terminalSetup are defined
-            const initialMessage = taskForSetup.terminalSetup.message || `Task: ${taskForSetup.title}`;
-            wsRef.current.send(JSON.stringify({ type: 'control', payload: `[SYSTEM_INIT] ${initialMessage}`}));
-          } else if (taskForSetup) { // Case where terminalSetup might be missing for a valid task
-             wsRef.current.send(JSON.stringify({ type: 'control', payload: `[SYSTEM_INIT] Task: ${taskForSetup.title}`}));
-          } else { // No active task
-             wsRef.current.send(JSON.stringify({ type: 'control', payload: '[SYSTEM_INIT] No active task. Terminal is idle.'}));
-          }
-      }
-  }, []); // Empty dependency array as it doesn't depend on props/state from this component's scope directly
-
-
-  const handleTerminalInput = useCallback((data) => {
+  const sendCommand = useCallback((command) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(data);
-    } else {
-      setTerminalOutputBuffer(prev => prev + '\r\n[Offline: Input not sent. WebSocket not connected.]\r\n');
-      // Optionally, trigger a reconnect attempt here if desired and not already in progress
-      // if (wsConnectionStatus !== 'Connecting...') {
-      //   connectWebSocket();
-      // }
+      wsRef.current.send(JSON.stringify({ type: 'command', data: command }));
+      return true;
     }
-  }, [/* wsConnectionStatus, connectWebSocket */]); // Dependencies for handleTerminalInput
+    return false;
+  }, []);
 
+  const sendInitialMessages = useCallback((task) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Send task context if task is active
+      if (task) {
+        wsRef.current.send(JSON.stringify({ 
+          type: 'setTaskContext', 
+          taskId: task.id,
+          validation: task.validation 
+        }));
+      } else {
+        wsRef.current.send(JSON.stringify({ 
+          type: 'setTaskContext', 
+          taskId: null,
+          validation: null
+        }));
+      }
+      return true;
+    }
+    return false;
+  }, []);
 
-  const handleVerifyAndComplete = () => {
-    if (activeTask && !activeTask.completed) {
-      if (wsConnectionStatus !== 'Connected') {
-        toast({
-          title: "Connection Error",
-          description: "WebSocket is not connected. Cannot verify task.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setIsVerifyingTask(true); // Start loading on verify button
-      const validationCommand = activeTask.validationCommand;
-      if (!validationCommand) {
-        toast({
-          title: "No Validation Command",
-          description: `Task "${activeTask.title}" does not have an automated validation command. Completing manually.`,
-          variant: "warning",
-        });
-        completeTask(activeTask.id); 
-        setIsVerifyingTask(false);
-        return;
-      }
-      
-      wsRef.current.send(JSON.stringify({
-        type: 'validation',
-        command: validationCommand
+  const resetTerminal = useCallback(() => {
+    // Only increment terminal key when we want to force a remount
+    setTerminalKey(prev => prev + 1);
+    // Reestablish connection
+    connectWebSocket();
+  }, [connectWebSocket]);
+
+  const verifyTask = useCallback(() => {
+    if (!activeTask) return;
+    
+    setIsVerifyingTask(true);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'validateTask', 
+        taskId: activeTask.id
       }));
-      
-      // Toast for verification sent is now less prominent, actual result toast is more important
-      // toast({
-      //   title: "Verification Sent",
-      //   description: `Executing: ${validationCommand}`,
-      // });
+      setTerminalOutputBuffer(prev => prev + '\r\n[Validating task...]\r\n');
+    } else {
+      setIsVerifyingTask(false);
+      toast({
+        title: "Connection Error",
+        description: "No connection to terminal server. Please reconnect.",
+        variant: "destructive",
+      });
     }
-  };
+  }, [activeTask, toast]);
 
-  const ReconnectButton = () => (
-    <Button onClick={connectWebSocket} variant="destructive" size="sm" className="mb-2 ml-auto block">
-        Reconnect Terminal
-    </Button>
-  );
+  // Update task context when active task changes
+  useEffect(() => {
+    if (wsConnectionStatus === 'Connected' && activeTask) {
+      sendInitialMessages(activeTask);
+    }
+  }, [activeTask, sendInitialMessages, wsConnectionStatus]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full">
-      <motion.div
-        initial={{ opacity: 0, x: -50 }}
+      <motion.div 
+        className="w-full lg:w-1/4 bg-card rounded-lg shadow-md p-4 flex flex-col"
+        initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="lg:w-1/3 space-y-6"
+        transition={{ duration: 0.3 }}
       >
-        <Card className="bg-slate-800/70 border-slate-700 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-2xl text-sky-400">Lab Progress</CardTitle>
-            <CardDescription>
-              {completedTasksCount} of {totalTasks} tasks completed.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Progress value={progressPercentage} className="w-full h-3 bg-slate-700" />
-            <Button onClick={resetTasks} variant="outline" size="sm" className="mt-4 w-full border-amber-500 text-amber-500 hover:bg-amber-500/10">
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset All Tasks
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800/70 border-slate-700 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-2xl text-sky-400">Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TaskList
-              tasks={tasks}
-              currentTaskIndex={currentTaskIndex}
-              onTaskSelect={(index) => setCurrentTaskIndex(index)}
-            />
-          </CardContent>
-        </Card>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Linux Lab Tasks</h2>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={resetTasks}
+            title="Reset all tasks"
+          >
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Reset
+          </Button>
+        </div>
+        <div className="mb-4">
+          <Progress value={progressPercentage} className="h-2" />
+          <p className="text-sm text-muted-foreground mt-1">
+            {completedTasksCount} of {totalTasks} tasks completed
+          </p>
+        </div>
+        <TaskList 
+          tasks={tasks} 
+          currentTaskIndex={currentTaskIndex}
+          setCurrentTaskIndex={setCurrentTaskIndex}
+        />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
+      <motion.div 
+        className="w-full lg:w-2/4 flex flex-col"
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="lg:w-2/3 flex flex-col"
+        transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-grow flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-800/70 border-slate-700">
-            <TabsTrigger value="instructions" className="data-[state=active]:bg-slate-700 data-[state=active]:text-sky-300">Instructions</TabsTrigger>
-            <TabsTrigger value="terminal" className="data-[state=active]:bg-slate-700 data-[state=active]:text-sky-300">Terminal</TabsTrigger>
+        <Tabs defaultValue="instructions" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="instructions">Instructions</TabsTrigger>
+            <TabsTrigger value="terminal">Terminal</TabsTrigger>
           </TabsList>
-          <TabsContent value="instructions" className="flex-grow mt-0">
-            <Card className="h-full bg-slate-800/70 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-6 h-full">
-                {activeTask ? (
-                  <TaskInstructions task={activeTask} />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                     <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-                    <h2 className="text-2xl font-semibold text-green-400">All Tasks Completed!</h2>
-                    <p className="text-muted-foreground mt-2">Congratulations! You've successfully completed all labs.</p>
-                    <p className="text-muted-foreground">You can reset tasks to start over.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="terminal" className="flex-grow mt-0 flex flex-col">
-            <div className="text-xs text-slate-400 mb-1 text-right pr-2">
-                WebSocket: <span className={
-                    wsConnectionStatus === 'Connected' ? 'text-green-400' : 
-                    wsConnectionStatus === 'Connecting...' ? 'text-yellow-400' : 'text-red-400'
-                }>{wsConnectionStatus}</span>
-                {wsConnectionStatus === 'Disconnected' || wsConnectionStatus === 'Error' ? <ReconnectButton /> : null}
-            </div>
-             <div className="flex-grow">
-                <TerminalEmulator 
-                    key={terminalKey} // Force re-mount on task change
-                    task={activeTask} 
-                    onData={handleTerminalInput} 
-                    initialOutput={terminalOutputBuffer} 
-                    isConnected={wsConnectionStatus === 'Connected'} 
-                    tasks={tasks} 
-                    currentTaskIndex={currentTaskIndex}
-                    isTerminalVisible={activeTab === 'terminal'} // New prop
-                />
-             </div>
-            {activeTask && !activeTask.completed && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="mt-6 mb-2"
-              >
+          <TabsContent value="instructions" className="bg-card rounded-lg shadow-md p-4 h-[calc(100vh-13rem)]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                {activeTask ? activeTask.title : 'No Task Selected'}
+              </h2>
+              {activeTask && !activeTask.completed && (
                 <Button 
-                  onClick={handleVerifyAndComplete} 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg glow-effect"
-                  disabled={!activeTask || activeTask.completed || wsConnectionStatus !== 'Connected' || isVerifyingTask}
+                  onClick={verifyTask} 
+                  disabled={isVerifyingTask || wsConnectionStatus !== 'Connected'}
                 >
                   {isVerifyingTask ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Verifying...
+                      <span className="mr-2">Verifying...</span>
+                      <div className="animate-spin h-4 w-4 border-2 border-b-transparent rounded-full"></div>
                     </>
                   ) : (
-                    <><CheckCircle className="mr-2 h-5 w-5" /> Verify & Complete Task</>
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Verify Task
+                    </>
                   )}
                 </Button>
-              </motion.div>
-            )}
-             {activeTask && activeTask.completed && currentTaskIndex === tasks.length - 1 && (
-               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="mt-6 mb-2 text-center p-4 bg-green-900/50 border border-green-700 rounded-md"
-              >
-                <p className="text-lg font-semibold text-green-300">All tasks finished! Well done!</p>
-              </motion.div>
-            )}
+              )}
+              {activeTask && activeTask.completed && (
+                <span className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Completed
+                </span>
+              )}
+            </div>
+            <TaskInstructions task={activeTask} />
+          </TabsContent>
+          <TabsContent value="terminal" className="bg-card rounded-lg shadow-md p-4 h-[calc(100vh-13rem)]">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center">
+                <h2 className="text-xl font-bold mr-3">Linux Terminal</h2>
+                <div className="flex items-center">
+                  <div 
+                    className={`h-3 w-3 rounded-full mr-2 ${
+                      wsConnectionStatus === 'Connected' 
+                        ? 'bg-green-500' 
+                        : wsConnectionStatus === 'Connecting...' 
+                          ? 'bg-yellow-500' 
+                          : 'bg-red-500'
+                    }`} 
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {wsConnectionStatus}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {wsConnectionStatus !== 'Connected' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={connectWebSocket}
+                  >
+                    Reconnect
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={resetTerminal}
+                  title="Reset terminal"
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Reset
+                </Button>
+              </div>
+            </div>
+            <div className="h-[calc(100%-3rem)] rounded border">
+              <TerminalEmulator
+                key={terminalKey}
+                isConnected={wsConnectionStatus === 'Connected'}
+                onSendCommand={sendCommand}
+                outputBuffer={terminalOutputBuffer}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </motion.div>

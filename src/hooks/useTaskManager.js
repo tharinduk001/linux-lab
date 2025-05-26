@@ -1,69 +1,82 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { initialTasks } from '@/data/tasks';
-import { useToast } from '@/components/ui/use-toast';
-
-const TASKS_STORAGE_KEY = 'horizonLabsTasks';
+import tasksData from '@/data/tasks.json';
 
 export const useTaskManager = () => {
-  const { toast } = useToast();
-  const [tasks, setTasks] = useState(() => {
-    const storedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-    return storedTasks ? JSON.parse(storedTasks) : initialTasks;
-  });
+  const [tasks, setTasks] = useState([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-
+  
+  // Initialize tasks from data
   useEffect(() => {
-    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-    const firstUncompletedTaskIndex = tasks.findIndex(task => !task.completed);
-    setCurrentTaskIndex(firstUncompletedTaskIndex === -1 ? tasks.length -1 : firstUncompletedTaskIndex);
-  }, [tasks]);
-
-  const activeTask = tasks[currentTaskIndex];
-
-  const completeTask = useCallback((taskId) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, completed: true } : task
-      )
-    );
-    toast({
-      title: "Task Completed!",
-      description: tasks.find(t=>t.id === taskId)?.successMessage || "Great job on completing the task!",
-      variant: "default",
-      duration: 3000,
+    const initialTasks = tasksData.map(task => ({
+      ...task,
+      completed: false
+    }));
+    setTasks(initialTasks);
+    
+    // Try to load from localStorage
+    const savedTasks = localStorage.getItem('linuxLabTasks');
+    const savedIndex = localStorage.getItem('linuxLabCurrentTaskIndex');
+    
+    if (savedTasks) {
+      try {
+        const parsedTasks = JSON.parse(savedTasks);
+        setTasks(parsedTasks);
+      } catch (e) {
+        console.error('Failed to parse saved tasks', e);
+      }
+    }
+    
+    if (savedIndex) {
+      try {
+        const parsedIndex = parseInt(savedIndex, 10);
+        setCurrentTaskIndex(parsedIndex);
+      } catch (e) {
+        console.error('Failed to parse saved task index', e);
+      }
+    }
+  }, []);
+  
+  // Save to localStorage when tasks or index change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      localStorage.setItem('linuxLabTasks', JSON.stringify(tasks));
+      localStorage.setItem('linuxLabCurrentTaskIndex', currentTaskIndex.toString());
+    }
+  }, [tasks, currentTaskIndex]);
+  
+  const activeTask = tasks.length > 0 ? tasks[currentTaskIndex] : null;
+  
+  const completeTask = useCallback((taskIndex) => {
+    setTasks(prevTasks => {
+      const newTasks = [...prevTasks];
+      if (newTasks[taskIndex]) {
+        newTasks[taskIndex] = { ...newTasks[taskIndex], completed: true };
+      }
+      return newTasks;
     });
     
-    const nextTaskIndex = tasks.findIndex(task => !task.completed);
-    if (nextTaskIndex !== -1) {
-      setCurrentTaskIndex(nextTaskIndex);
-    } else {
-       setCurrentTaskIndex(tasks.length - 1); // Stay on last task if all complete
-       toast({
-        title: "All Tasks Completed!",
-        description: "Congratulations! You've finished all available labs.",
-        variant: "default",
-        duration: 5000,
-      });
+    // Advance to next task if available
+    if (taskIndex < tasks.length - 1) {
+      setCurrentTaskIndex(taskIndex + 1);
     }
-  }, [tasks, toast]);
+  }, [tasks.length]);
   
   const resetTasks = useCallback(() => {
-    setTasks(initialTasks.map(task => ({ ...task, completed: false })));
+    const resetTasks = tasksData.map(task => ({
+      ...task,
+      completed: false
+    }));
+    setTasks(resetTasks);
     setCurrentTaskIndex(0);
-    localStorage.removeItem(TASKS_STORAGE_KEY);
-    toast({
-      title: "Lab Reset",
-      description: "All tasks have been reset to their initial state.",
-      variant: "default",
-      duration: 3000,
-    });
-  }, [toast]);
-
-  const totalTasks = tasks.length;
+  }, []);
+  
+  // Calculate progress
   const completedTasksCount = tasks.filter(task => task.completed).length;
-  const progressPercentage = totalTasks > 0 ? (completedTasksCount / totalTasks) * 100 : 0;
-
+  const totalTasks = tasks.length;
+  const progressPercentage = totalTasks > 0 
+    ? (completedTasksCount / totalTasks) * 100 
+    : 0;
+  
   return {
     tasks,
     activeTask,
@@ -71,9 +84,8 @@ export const useTaskManager = () => {
     resetTasks,
     currentTaskIndex,
     setCurrentTaskIndex,
-    totalTasks,
-    completedTasksCount,
     progressPercentage,
+    completedTasksCount,
+    totalTasks
   };
 };
-  

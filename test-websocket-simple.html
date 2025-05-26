@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        #output { 
+            background: #000; 
+            padding: 10px; 
+            height: 400px; 
+            overflow-y: auto; 
+            white-space: pre-wrap;
+            border: 1px solid #333;
+        }
+        input[type="text"] { 
+            width: 300px; 
+            padding: 5px; 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #555;
+        }
+        button { 
+            padding: 5px 10px; 
+            background: #0066cc; 
+            color: #fff; 
+            border: none; 
+            cursor: pointer;
+        }
+        .status { margin: 10px 0; padding: 5px; }
+        .connected { background: #006600; }
+        .disconnected { background: #660000; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Terminal Test</h1>
+    <div id="status" class="status disconnected">Disconnected</div>
+    
+    <div>
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <button onclick="sendTest()">Send Test Command</button>
+    </div>
+    
+    <div>
+        <input type="text" id="commandInput" placeholder="Enter command..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendCommand()">Send</button>
+    </div>
+    
+    <div id="output"></div>
+
+    <script>
+        let ws = null;
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const commandInput = document.getElementById('commandInput');
+
+        function updateStatus(message, connected) {
+            status.textContent = message;
+            status.className = 'status ' + (connected ? 'connected' : 'disconnected');
+        }
+
+        function addOutput(text) {
+            output.textContent += text;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function connect() {
+            if (ws && ws.readyState !== WebSocket.CLOSED) {
+                ws.close();
+            }
+
+            updateStatus('Connecting...', false);
+            addOutput('Connecting to ws://localhost:3001/terminal...\n');
+
+            ws = new WebSocket('ws://localhost:3001/terminal');
+
+            ws.onopen = function() {
+                updateStatus('Connected', true);
+                addOutput('✅ Connected!\n');
+            };
+
+            ws.onmessage = function(event) {
+                addOutput(event.data);
+            };
+
+            ws.onclose = function() {
+                updateStatus('Disconnected', false);
+                addOutput('\n❌ Connection closed\n');
+            };
+
+            ws.onerror = function(error) {
+                updateStatus('Error', false);
+                addOutput('\n❌ Connection error\n');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function sendCommand() {
+            const command = commandInput.value;
+            if (ws && ws.readyState === WebSocket.OPEN && command) {
+                ws.send(command);
+                commandInput.value = '';
+            }
+        }
+
+        function sendTest() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send('echo "Hello from WebSocket test!"\n');
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendCommand();
+            }
+        }
+
+        // Auto-connect on load
+        connect();
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Page</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      .success {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Debug Page</h1>
+    <p>If you can see this page, your web server is working correctly.</p>
+    <div id="test-div" class="success">This is a test div element</div>
+
+    <script>
+      console.log("Debug page loaded");
+      document.getElementById("test-div").textContent =
+        "JavaScript is working!";
+    </script>
+  </body>
+</html>

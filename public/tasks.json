@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "title": "Complete project setup",
+    "description": "Initialize the React application and configure all dependencies",
+    "completed": true
+  },
+  {
+    "id": 2,
+    "title": "Create UI components",
+    "description": "Design and implement all required UI components",
+    "completed": false
+  }
+]
